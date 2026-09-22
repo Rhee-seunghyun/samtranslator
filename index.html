@@ -218,6 +218,13 @@
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
   }
+  #centerIndicator.state-listening {
+    animation: centerPulse 1.1s ease-in-out infinite;
+  }
+  @keyframes centerPulse {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); }
+    50% { transform: translate(-50%, -50%) scale(1.18); }
+  }
 
   /* settings gear on patient side (drawn upright for patient since half is rotated 180) */
   .settings-btn {
@@ -512,35 +519,15 @@ function setListeningUI(side, on) {
   status.textContent = on ? '듣고 있어요...' : (side === 'doctor' ? '눌러서 말씀하세요' : '터치해서 말씀해주세요');
 }
 
+// 주의: getUserMedia()로 별도 마이크 스트림을 열어서 음량을 측정하면,
+// 모바일 크롬(특히 안드로이드 태블릿)에서 SpeechRecognition이 쓰는 마이크와
+// 충돌해서 인식 결과가 전혀 안 나오는 문제가 있었음(PC 크롬은 문제 없었음).
+// 그래서 음량 반응 스케일 대신 CSS 펄스 애니메이션(.state-listening)으로 대체.
 async function startVolumeMeter() {
-  try {
-    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const src = audioCtx.createMediaStreamSource(micStream);
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 512;
-    src.connect(analyser);
-    const data = new Uint8Array(analyser.frequencyBinCount);
-    const loop = () => {
-      analyser.getByteFrequencyData(data);
-      let sum = 0;
-      for (let i = 0; i < data.length; i++) sum += data[i];
-      const avg = sum / data.length; // 0-255
-      const scale = 1 + Math.min(avg / 90, 1) * 0.7; // 1.0 - 1.7
-      centerIndicator.style.transform = `translate(-50%, -50%) scale(${scale})`;
-      rafId = requestAnimationFrame(loop);
-    };
-    loop();
-  } catch (e) {
-    console.warn('mic volume meter unavailable', e);
-  }
+  // no-op (마이크 이중 접근 방지)
 }
 
 function stopVolumeMeter() {
-  if (rafId) cancelAnimationFrame(rafId);
-  rafId = null;
-  if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
-  if (audioCtx) { audioCtx.close().catch(()=>{}); audioCtx = null; }
   centerIndicator.style.transform = 'translate(-50%, -50%) scale(1)';
 }
 

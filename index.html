@@ -381,6 +381,14 @@
     color: #fff;
     cursor: pointer;
   }
+  .version-tag {
+    margin: 14px 0 0 0;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: #c3c3c3;
+    letter-spacing: 0.3px;
+  }
 </style>
 </head>
 <body>
@@ -436,6 +444,7 @@
       </div>
 
       <button id="closeSettings">닫기</button>
+      <p class="version-tag">v1.6 · 2026-09-22 18:41 · 음성인식 오류 화면에 표시</p>
     </div>
   </div>
 
@@ -606,6 +615,7 @@ function handleFlagTap(side) {
   recognition.maxAlternatives = 1;
 
   let finalTranscript = '';
+  let recognitionError = null;
 
   recognition.onresult = (event) => {
     for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -617,15 +627,25 @@ function handleFlagTap(side) {
 
   recognition.onerror = (event) => {
     console.error('recognition error', event.error);
+    recognitionError = event.error; // 진단용: 화면에 그대로 표시
   };
 
   recognition.onend = async () => {
     stopVolumeMeter();
     setListeningUI(side, false);
 
+    const ownStatusEl = side === 'doctor' ? doctorStatus : patientStatus;
     const targetTextEl = side === 'doctor' ? patientText : doctorText;
     const targetStatusEl = side === 'doctor' ? patientStatus : doctorStatus;
     const originalTextEl = side === 'doctor' ? doctorOriginalText : patientOriginalText;
+
+    if (recognitionError) {
+      ownStatusEl.textContent = '음성인식 오류: ' + recognitionError;
+      setCenterState('idle');
+      setDisabled(side === 'doctor' ? 'patient' : 'doctor', false);
+      listeningSide = null;
+      return;
+    }
 
     if (finalTranscript.trim()) {
       originalTextEl.textContent = finalTranscript; // 내가 말한 내용이 제대로 인식됐는지 확인용
@@ -658,6 +678,8 @@ function handleFlagTap(side) {
         targetTextEl.classList.remove('placeholder');
       }
       targetStatusEl.textContent = side === 'doctor' ? '터치해서 말씀해주세요' : '눌러서 말씀하세요';
+    } else {
+      ownStatusEl.textContent = '인식된 음성이 없어요. 다시 시도해주세요.';
     }
 
     setDisabled(side === 'doctor' ? 'patient' : 'doctor', false);
